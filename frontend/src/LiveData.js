@@ -1,43 +1,32 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
-
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3000';
-const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
+const MAX_EVENTS = 100;
 
 export default function LiveData() {
   const [items, setItems] = useState([]);
-  const latestRef = useRef(null);
-  latestRef.current = items;
-
+  const [status, setStatus] = useState('Connecting');
   useEffect(() => {
-    socket.on('connect', () => console.log('connected to socket', socket.id));
-    socket.on('processedData', (data) => {
-      if (!data) return;
-      setItems(prev => {
-        const next = [data, ...prev].slice(0, 1000); // keep last 1000
-        return next;
-      });
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    socket.on('connect', () => setStatus('Connected'));
+    socket.on('connect_error', () => setStatus('Reconnecting'));
+    socket.on('disconnect', () => setStatus('Disconnected'));
+    socket.on('processedData', data => {
+      if (!data || !Number.isFinite(data.value)) return;
+      setItems(previous => [data, ...previous].slice(0, MAX_EVENTS));
     });
-    socket.on('disconnect', () => console.log('socket disconnected'));
-
-    return () => {
-      socket.off('processedData');
-    };
+    return () => socket.disconnect();
   }, []);
-
-  return (
-    <div style={{ padding: 20 }}>
-      <h2>Live Data</h2>
-      <div style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid #ddd', padding: 10 }}>
-        <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-          {items.map((it, idx) => (
-            <li key={idx} style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-              <strong>{it.value}</strong> — {it.severity} — <small>{it.processedAt}</small>
-              <div><code>{JSON.stringify(it)}</code></div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
+  return <main className="stream-workspace">
+    <header><p className="eyebrow">SOCKET.IO · LIVE TELEMETRY</p><h1>Signal monitor</h1><p>Values above 50 pass the stream filter. Values above 80 are flagged for attention.</p></header>
+    <section className="stream-summary" aria-label="Connection and stream status">
+      <div><span>Connection</span><strong role="status">{status}</strong></div>
+      <div><span>Events in this session</span><strong>{items.length}</strong></div>
+      <div><span>Latest value</span><strong>{items[0]?.value ?? '—'}</strong></div>
+    </section>
+    <section className="stream-events"><h2>Incoming events</h2><p>Newest first · up to {MAX_EVENTS} events retained locally</p>
+      {items.length === 0 ? <p className="empty-stream">Waiting for a qualifying event. Start the API simulator or send a newData message.</p> :
+      <ul>{items.map((item,index)=><li key={`${item.processedAt}-${index}`}><strong className="event-value">{item.value}</strong><span className={`severity ${item.severity}`}>{item.severity}</span><span>{item.source || 'client'}</span><time>{item.processedAt}</time></li>)}</ul>}
+    </section>
+  </main>;
 }

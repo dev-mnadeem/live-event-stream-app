@@ -1,0 +1,12 @@
+services:
+  stream:
+    build:
+      context: .
+      args:
+        REACT_APP_SOCKET_URL: http://localhost:3001
+    environment:
+      PORT: 3001
+      CORS_ORIGIN: http://localhost:3001
+      SIMULATE_DATA: 'true'
+    ports: ["127.0.0.1:3001:3001"]
+    init: true
