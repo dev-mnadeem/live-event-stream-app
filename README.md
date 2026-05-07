@@ -85,3 +85,7 @@ has not been exercised in this environment; the native process setup was verifie
 This is a single-process broadcast demo. It has no durable event log, user
 permissions, producer authentication or backpressure protocol. A public deployment
 needs those boundaries and a shared Socket.IO adapter before adding replicas.
+
+## Author
+
+[**Muhammad Nadeem**](https://github.com/dev-mnadeem)
